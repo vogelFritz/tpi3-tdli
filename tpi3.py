@@ -122,8 +122,24 @@ def compressAndSave(original_path, compressed_path, longitud_palabra):
 
     # TODO: Guardar archivo comprimido
 
+    # TODO: Lo de abajo es INCORRECTO, solo es una idea para el formato del archivo (tabla al comienzo del archivo)
+    # Los unos y los ceros hay que guardarlos como bits y no en formato de int, si no no se comprime nada
+    with open(compressed_path, "rwb") as file:
+        file.write(len(alfabeto))
+        for car in alfabeto:
+            file.write(car)
+        for arr in codigo:
+            file.write(len(arr)) # Longitudes de las palabras código
+        for arr in codigo:
+            for num in arr: # num es 1 o 0
+                file.write(num) # Digitos de la palabra código
+        
+
+
 def decompressAndSave(compressed_path, original_path):
     print("Descomprimir y recuperar original")
+
+
 
 
 if len(sys.argv) < 4:
