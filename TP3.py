@@ -1,5 +1,6 @@
 import sys
 import time
+import struct
 
 
 # Python program for implementation of Quicksort Sort
@@ -80,6 +81,21 @@ def list_recursive_sum_type_safe(maybe_arr):
     else:
         return maybe_arr
     
+from collections import Counter
+
+def obtener_alfabeto_probabilidades(content):
+    alfabeto = list(set(content))  # Obtener los símbolos únicos
+    conteos = Counter(content)     # Contar las ocurrencias de cada símbolo
+    total_simbolos = len(content)  # Longitud del contenido 
+    
+    # Calcular las probabilidades
+    probabilidades = [conteos[symbol] / total_simbolos for symbol in alfabeto]
+    
+    return alfabeto, probabilidades
+
+
+
+    
 def compressAndSave(original_path, compressed_path, longitud_palabra):
     start_time = time.time()
 
@@ -89,22 +105,19 @@ def compressAndSave(original_path, compressed_path, longitud_palabra):
     print(type(content))
     # TODO: Obtener alfabeto y probabilidades
 
-    alfabeto = ['b', 'a', 'c']
-    probabilidades = [2.0, 3.0, 1.0]
+    alfabeto, probabilidades = obtener_alfabeto_probabilidades(content)
 
     # Primer paso Huffman
     quickSortDescendingParallel(probabilidades, 0, len(probabilidades) - 1, [alfabeto])
 
-    main_arr = probabilidades
-    num_arr = probabilidades
+    main_arr = probabilidades.copy()
+    num_arr = probabilidades.copy()
 
     while len(main_arr) > 2:
         aux = main_arr[len(main_arr) - 2:]
         num_arr = [*num_arr[:len(num_arr) - 2], list_recursive_sum(aux)]
         main_arr = [*main_arr[:len(main_arr) - 2], aux]
         quickSortDescendingParallel(num_arr, 0, len(num_arr) - 1, [main_arr])
-        print(num_arr)
-        print(main_arr)
 
     codigo = [[0], [1]] # Almacenar de forma óptima los bytes
     while len(main_arr) < len(probabilidades):
@@ -115,30 +128,48 @@ def compressAndSave(original_path, compressed_path, longitud_palabra):
             main_arr = [*main_arr[:i], *main_arr[i], *main_arr[i+1:]]
             num_arr = list(map(list_recursive_sum_type_safe, main_arr))
             codigo = [*codigo[:i], [*codigo[i], 0], [*codigo[i], 1], *codigo[i+1:]]
-            print(codigo)
-            quickSortDescendingParallel(num_arr, 0, len(num_arr) - 1, [main_arr, codigo]) # Quizás este ordenamiento no hace falta
+            
+    print("Códigos generados:")
+    print(codigo)        
 
-    print("codigo, probabilidades y alfabeto")
-    print(codigo)
-    print(num_arr)
-    print(alfabeto)
 
-    # TODO: Guardar archivo comprimido
+ # Crear diccionario de Huffman
+    huffman_dict = {alfabeto[i]: codigo[i] for i in range(len(alfabeto))}
 
-    # TODO: Lo de abajo es INCORRECTO, solo es una idea para el formato del archivo (tabla al comienzo del archivo)
-    # Los unos y los ceros hay que guardarlos como bits y no en formato de int, si no no se comprime nada
-    with open(compressed_path, "rwb") as file:
-        file.write(len(alfabeto))
-        for car in alfabeto:
-            file.write(car)
-        for arr in codigo:
-            file.write(len(arr)) # Longitudes de las palabras código
-        for arr in codigo:
-            for num in arr: # num es 1 o 0
-                file.write(num) # Digitos de la palabra código
+    # Escribir en formato binario
+    with open(compressed_path, "wb") as file:
+        # . Escribir el alfabeto
+        file.write(struct.pack('I', len(alfabeto)))  # Escribir el tamaño del alfabeto, el struct para escribir por byte
+        for symbol in alfabeto:
+            #file.write(symbol.encode('utf-8'))  # Escribir cada símbolo
+            file.write(bytes([symbol]))
+        # . Escribir longitudes de los códigos
+        for symbol in alfabeto:
+            code = huffman_dict[symbol]
+            file.write(struct.pack('B', len(code)))  # Escribir la longitud de cada código
+
+        # . Escribir los datos comprimidos, hay qye pasarlos a bits
+        compressed_data = []
+        for char in content:
+            compressed_data.extend(huffman_dict[char])  # Obtener los bits de Huffman para cada char
+
+        # Unir los bits en bytes y escribirlos
+        byte = 0
+        bit_count = 0
+        for bit in compressed_data:
+            byte = (byte << 1) | bit  
+            bit_count += 1
+            if bit_count == 8:  # Si completamos 8 bits, escribimos el byte
+                file.write(struct.pack('B', byte))
+                byte = 0
+                bit_count = 0
+
+        if bit_count > 0:  # Si quedan bits incompletos,se usa padding
+            byte = byte << (8 - bit_count)
+            file.write(struct.pack('B', byte))
         
     end_time = time.time()  
-    elapsed_time = end_time - start_time  # Calcular el tiempo transcurrido
+    elapsed_time = end_time - start_time  
     print(f"Tiempo de compresión: {elapsed_time:.6f} segundos")
 
 def decompressAndSave(compressed_path, original_path):
@@ -189,25 +220,26 @@ def decompressAndSave(compressed_path, original_path):
     elapsed_time = end_time - start_time  
     print(f"Tiempo de descompresión: {elapsed_time:.6f} segundos")
 
-if len(sys.argv) < 4:
-    print("Hacen falta argumentos")
-    print("tpi3 {-c|-d} original compressed")
-    sys.exit(1)
+#if len(sys.argv) < 4:
+   # print("Hacen falta argumentos")
+   # print("tpi3 {-c|-d} original compressed")
+  #  sys.exit(1)
 
 longitud_palabra = 16 # Longitud de la palabra en bytes
 
-original_path = sys.argv[2]
-compressed_path = sys.argv[3]
+original_path = 
+compressed_path = 
 
-compress = sys.argv[1] == "-c"
-print(compress)
+##compress = sys.argv[1] == "-c"
+#print(compress)
 
 print("longitud palabra:", longitud_palabra)
 print("original path:", original_path)
 print("compressed path:", compressed_path)
 
 
-if(compress):
-    compressAndSave(original_path, compressed_path, longitud_palabra)
-else:
-    decompressAndSave(compressed_path, original_path)
+
+#if(compress):
+compressAndSave(original_path, compressed_path, longitud_palabra)
+#else:
+#decompressAndSave(compressed_path, original_path)
