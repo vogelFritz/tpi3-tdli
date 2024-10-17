@@ -1,4 +1,5 @@
 import sys
+import time
 
 
 # Python program for implementation of Quicksort Sort
@@ -80,6 +81,8 @@ def list_recursive_sum_type_safe(maybe_arr):
         return maybe_arr
     
 def compressAndSave(original_path, compressed_path, longitud_palabra):
+    start_time = time.time()
+
     # Abrir en binario
     with open(original_path, 'rb') as file:
         content = file.read()
@@ -134,9 +137,13 @@ def compressAndSave(original_path, compressed_path, longitud_palabra):
             for num in arr: # num es 1 o 0
                 file.write(num) # Digitos de la palabra código
         
-
+    end_time = time.time()  
+    elapsed_time = end_time - start_time  # Calcular el tiempo transcurrido
+    print(f"Tiempo de compresión: {elapsed_time:.6f} segundos")
 
 def decompressAndSave(compressed_path, original_path):
+    start_time = time.time()
+
     print("Descomprimir y recuperar original")
     with open(compressed_path, 'rb') as file:
         # para obtener el alfabeto
@@ -178,7 +185,9 @@ def decompressAndSave(compressed_path, original_path):
         with open(original_path, 'wb') as file:
             file.write(decoded_content.encode('utf-8'))
 
-
+    end_time = time.time()  
+    elapsed_time = end_time - start_time  
+    print(f"Tiempo de descompresión: {elapsed_time:.6f} segundos")
 
 if len(sys.argv) < 4:
     print("Hacen falta argumentos")
