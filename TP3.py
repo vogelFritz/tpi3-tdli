@@ -130,43 +130,43 @@ def compressAndSave(original_path, compressed_path, longitud_palabra):
             codigo = [*codigo[:i], [*codigo[i], 0], [*codigo[i], 1], *codigo[i+1:]]
             
     print("Códigos generados:")
-    print(codigo)        
+    print(codigo)  
+    print("alfabeto", alfabeto,probabilidades)  
 
 
- # Crear diccionario de Huffman
+ # Crea un diccionario de Huffman con cada codigo
     huffman_dict = {alfabeto[i]: codigo[i] for i in range(len(alfabeto))}
 
-    # Escribir en formato binario
     with open(compressed_path, "wb") as file:
-        # . Escribir el alfabeto
-        file.write(struct.pack('I', len(alfabeto)))  # Escribir el tamaño del alfabeto, el struct para escribir por byte
+        file.write(struct.pack('I', len(alfabeto)))  # Tamaño del alfabeto
         for symbol in alfabeto:
-            #file.write(symbol.encode('utf-8'))  # Escribir cada símbolo
-            file.write(bytes([symbol]))
-        # . Escribir longitudes de los códigos
+            file.write(bytes([symbol]))  # Escribe cada símbolo
+
+        # Escribe las longitudes de los códigos
         for symbol in alfabeto:
             code = huffman_dict[symbol]
-            file.write(struct.pack('B', len(code)))  # Escribir la longitud de cada código
+            file.write(struct.pack('B', len(code)))  # Longitud del código
 
-        # . Escribir los datos comprimidos, hay qye pasarlos a bits
+        # Escribe los datos comprimidos
         compressed_data = []
         for char in content:
-            compressed_data.extend(huffman_dict[char])  # Obtener los bits de Huffman para cada char
+            compressed_data.extend(huffman_dict[char])  # Bits de Huffman
 
-        # Unir los bits en bytes y escribirlos
+        
         byte = 0
         bit_count = 0
         for bit in compressed_data:
             byte = (byte << 1) | bit  
             bit_count += 1
-            if bit_count == 8:  # Si completamos 8 bits, escribimos el byte
+            if bit_count == 8:
                 file.write(struct.pack('B', byte))
                 byte = 0
                 bit_count = 0
 
-        if bit_count > 0:  # Si quedan bits incompletos,se usa padding
-            byte = byte << (8 - bit_count)
+        if bit_count > 0:
+            byte = byte << (8 - bit_count)  # Padding
             file.write(struct.pack('B', byte))
+
         
     end_time = time.time()  
     elapsed_time = end_time - start_time  
@@ -237,7 +237,16 @@ print("longitud palabra:", longitud_palabra)
 print("original path:", original_path)
 print("compressed path:", compressed_path)
 
+def leerArchivoBinarioEnHex(ruta_archivo):
+    with open(ruta_archivo, 'rb') as file:
+        contenido = file.read()
+        
+        hex_output = contenido.hex()
+        print("Contenido del archivo comprimido en hexadecimal:")
+        print(hex_output)
 
+
+#leerArchivoBinarioEnHex(compressed_path)
 
 #if(compress):
 compressAndSave(original_path, compressed_path, longitud_palabra)
