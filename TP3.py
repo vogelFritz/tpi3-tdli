@@ -103,9 +103,11 @@ def compressAndSave(original_path, compressed_path, longitud_palabra):
     with open(original_path, 'rb') as file:
         content = file.read()
     print(type(content))
-    # TODO: Obtener alfabeto y probabilidades
+    # TODO: Si el archivo es realmente grande esta opción no es viable
 
     alfabeto, probabilidades = obtener_alfabeto_probabilidades(content)
+    print(alfabeto)
+    print(probabilidades)
 
     # Primer paso Huffman
     quickSortDescendingParallel(probabilidades, 0, len(probabilidades) - 1, [alfabeto])
@@ -132,6 +134,7 @@ def compressAndSave(original_path, compressed_path, longitud_palabra):
     print("Códigos generados:")
     print(codigo)  
     print("alfabeto", alfabeto,probabilidades)  
+    print("longitud alfabeto", len(alfabeto))
 
 
  # Crea un diccionario de Huffman con cada codigo
@@ -147,12 +150,18 @@ def compressAndSave(original_path, compressed_path, longitud_palabra):
             code = huffman_dict[symbol]
             file.write(struct.pack('B', len(code)))  # Longitud del código
 
+        for symbol in alfabeto:
+            code = huffman_dict[symbol]
+            for bit in code:
+                file.write(struct.pack('B', bit))
+
         # Escribe los datos comprimidos
         compressed_data = []
         for char in content:
             compressed_data.extend(huffman_dict[char])  # Bits de Huffman
+        print('archivo comprimido')
+        print(compressed_data)
 
-        
         byte = 0
         bit_count = 0
         for bit in compressed_data:
@@ -167,6 +176,11 @@ def compressAndSave(original_path, compressed_path, longitud_palabra):
             byte = byte << (8 - bit_count)  # Padding
             file.write(struct.pack('B', byte))
 
+
+    with open(compressed_path, "rb") as file:
+        content = file.read()
+        print("archivo comprimido")
+        print(''.join('%02x'%i for i in content))
         
     end_time = time.time()  
     elapsed_time = end_time - start_time  
@@ -178,8 +192,9 @@ def decompressAndSave(compressed_path, original_path):
     print("Descomprimir y recuperar original")
     with open(compressed_path, 'rb') as file:
         # para obtener el alfabeto
-        alfabeto_length = file.read(1)[0]  # obtine la long del alfabeto, el primer byte y lo tranforma en entero
-        alfabeto = [file.read(1).decode('utf-8') for _ in range(alfabeto_length)]  #se guarda en una lista en formato utf-8
+        alfabeto_length = struct.unpack('<i', file.read(4))[0]  # obtine la long del alfabeto, el primer byte y lo tranforma en entero
+        print("longitud alfabeto", alfabeto_length)
+        alfabeto = [file.read(1) for _ in range(alfabeto_length)]  #se guarda en una lista en formato utf-8
         
         # Lee las longitudes del codigo de huffman
         longitudes_codigo = [file.read(1)[0] for _ in range(alfabeto_length)]
@@ -187,51 +202,48 @@ def decompressAndSave(compressed_path, original_path):
         # Lee los códigos binarios de cada simbolo
         codigo = []
         for longitud in longitudes_codigo:
-            codigo.append([file.read(1)[0] for _ in range(longitud)])  # Leer los bits como 1 o 0
+            codigo.append([file.read(1) for _ in range(longitud)])  # Leer los bits como 1 o 0
+        print("codigo", codigo)
 
          # mapea cada codigo de huffman a cada simbolo para despues ir decodificando
         huffman_dict = {}
         for i in range(len(alfabeto)):
-            huffman_dict[''.join(map(str, codigo[i]))] = alfabeto[i]
+            bits_string = ''.join(map(lambda byte: bin(int.from_bytes(byte, byteorder='big'))[2:], codigo[i]))
+            huffman_dict[bits_string] = alfabeto[i]
 
-        compressed_data = '' # quedan los datos comprimidos en bits
-        byte = file.read(1)
-        while byte:
-            # Leer byte por byte y convierte a bits, si es un caracter lo transfoma en ASCII y luego a bits
-            bits = bin(ord(byte))[2:].zfill(8)  # Convertir cada byte a 8 bits
-            compressed_data += bits
-            byte = file.read(1)
-        
-        #Decodificar los bits usando el diccionario de Huffman
-        #hay q ver bien el tema de los prejios para que se encuentre el codigo exacto en el diccinario
-        decoded_content = ''
+        original = open(original_path, 'wb')
+        byte = struct.unpack('<B', file.read(1))[0]
         current_code = ''
-        for bit in compressed_data:
-           current_code += bit
-           if current_code in huffman_dict:
-            decoded_content += huffman_dict[current_code]
-            current_code = ''  # Resetear el código después de encontrar un símbolo
-    
-        # Escribir el archivo original descomprimido
-        with open(original_path, 'wb') as file:
-            file.write(decoded_content.encode('utf-8'))
+        while byte:
+            for i in range(8):
+                bit = (byte >> i) & 1
+                print(bit)
+                current_code += str(bit)
+                print("current code", current_code)
+                print(huffman_dict)
+                if current_code in huffman_dict:
+                    original.write(huffman_dict[current_code])
+                    current_code = ''
+            byte = file.read(1)
 
-    end_time = time.time()  
+    print("original file:")
+    print(open(original_path).read())
+
+    end_time = time.time()
     elapsed_time = end_time - start_time  
     print(f"Tiempo de descompresión: {elapsed_time:.6f} segundos")
 
-#if len(sys.argv) < 4:
-   # print("Hacen falta argumentos")
-   # print("tpi3 {-c|-d} original compressed")
-  #  sys.exit(1)
+if len(sys.argv) < 4:
+   print("Hacen falta argumentos")
+   print("tpi3 {-c|-d} original compressed")
+   sys.exit(1)
 
 longitud_palabra = 16 # Longitud de la palabra en bytes
 
-original_path = 
-compressed_path = 
+original_path = sys.argv[2]
+compressed_path = sys.argv[3]
 
-##compress = sys.argv[1] == "-c"
-#print(compress)
+compress = sys.argv[1] == "-c"
 
 print("longitud palabra:", longitud_palabra)
 print("original path:", original_path)
@@ -246,9 +258,9 @@ def leerArchivoBinarioEnHex(ruta_archivo):
         print(hex_output)
 
 
-#leerArchivoBinarioEnHex(compressed_path)
+leerArchivoBinarioEnHex(compressed_path)
 
-#if(compress):
-compressAndSave(original_path, compressed_path, longitud_palabra)
-#else:
-#decompressAndSave(compressed_path, original_path)
+if(compress):
+    compressAndSave(original_path, compressed_path, longitud_palabra)
+else:
+    decompressAndSave(compressed_path, original_path)
