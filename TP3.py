@@ -218,22 +218,17 @@ def decompressAndSave(compressed_path, original_path):
         original = open(original_path, 'wb')
         redByte = file.read(1)
         current_code = ''
-        content = []
         while redByte:
             byte = struct.unpack('<B', redByte)[0]
             for i in range(8):
-                bit = (byte >> i) & 1
+                bit = (byte >> (8 - i - 1)) & 1
                 current_code += str(bit)
                 if current_code in huffman_dict:
                     print(current_code)
                     print(huffman_dict[current_code])
-                    content.append(huffman_dict[current_code])
-                    #original.write(huffman_dict[current_code])
+                    original.write(huffman_dict[current_code])
                     current_code = ''
             redByte = file.read(1)
-    print(content)
-    for i in range(len(content)):
-        original.write(content[len(content) - i - 1])
     original.close()
     print("original file:")
     print(open(original_path).read())
