@@ -168,12 +168,13 @@ def compressAndSave(original_path, compressed_path, longitud_palabra):
             byte = (byte << 1) | bit  
             bit_count += 1
             if bit_count == 8:
-                file.write(struct.pack('B', byte))
+                file.write(struct.pack('<B', byte))
                 byte = 0
                 bit_count = 0
 
         if bit_count > 0:
             byte = byte << (8 - bit_count)  # Padding
+            print(byte)
             file.write(struct.pack('B', byte))
 
 
@@ -205,6 +206,9 @@ def decompressAndSave(compressed_path, original_path):
             codigo.append([file.read(1) for _ in range(longitud)])  # Leer los bits como 1 o 0
         print("codigo", codigo)
 
+        print("alfabeto", alfabeto)
+        print(type(alfabeto[0]))
+        print(sys.getsizeof(alfabeto[0]))
          # mapea cada codigo de huffman a cada simbolo para despues ir decodificando
         huffman_dict = {}
         for i in range(len(alfabeto)):
@@ -212,22 +216,29 @@ def decompressAndSave(compressed_path, original_path):
             huffman_dict[bits_string] = alfabeto[i]
 
         original = open(original_path, 'wb')
-        byte = struct.unpack('<B', file.read(1))[0]
+        redByte = file.read(1)
         current_code = ''
-        while byte:
+        content = []
+        while redByte:
+            byte = struct.unpack('<B', redByte)[0]
             for i in range(8):
                 bit = (byte >> i) & 1
-                print(bit)
                 current_code += str(bit)
-                print("current code", current_code)
-                print(huffman_dict)
                 if current_code in huffman_dict:
-                    original.write(huffman_dict[current_code])
+                    print(current_code)
+                    print(huffman_dict[current_code])
+                    content.append(huffman_dict[current_code])
+                    #original.write(huffman_dict[current_code])
                     current_code = ''
-            byte = file.read(1)
-
+            redByte = file.read(1)
+    print(content)
+    for i in range(len(content)):
+        original.write(content[len(content) - i - 1])
+    original.close()
     print("original file:")
     print(open(original_path).read())
+    original.close()
+
 
     end_time = time.time()
     elapsed_time = end_time - start_time  
