@@ -98,14 +98,21 @@ def obtener_alfabeto_probabilidades(content):
     
 def compressAndSave(original_path, compressed_path, longitud_palabra):
     start_time = time.time()
+    alfabeto = []
+    probabilidades = []
+    chunk_size = 200 # leer de a 200 bytes
 
-    # Abrir en binario
     with open(original_path, 'rb') as file:
-        content = file.read()
-    print(type(content))
-    # TODO: Si el archivo es realmente grande esta opción no es viable
+       while True:
+           chunk = file.read(chunk_size)
+           if not chunk:
+               break
+           # Update alphabet and probabilities from the chunk
+           alfabeto_chunk, probabilidades_chunk = obtener_alfabeto_probabilidades(chunk)
+           # Combine with the rest
+           alfabeto.extend(alfabeto_chunk)
+           probabilidades.extend(probabilidades_chunk)
 
-    alfabeto, probabilidades = obtener_alfabeto_probabilidades(content)
     print(alfabeto)
     print(probabilidades)
 
@@ -155,38 +162,32 @@ def compressAndSave(original_path, compressed_path, longitud_palabra):
             for bit in code:
                 file.write(struct.pack('B', bit))
 
-        # Escribe los datos comprimidos
-        compressed_data = []
-        for char in content:
-            compressed_data.extend(huffman_dict[char])  # Bits de Huffman
-
         padding_index = file.tell()
         file.write(struct.pack('B', 0)) # Guardo un byte inicializado en 0 para el padding
-        print("padding_index", padding_index)
 
         byte = 0
         bit_count = 0
-        for bit in compressed_data:
-            byte = (byte << 1) | bit  
-            bit_count += 1
-            if bit_count == 8:
-                file.write(struct.pack('<B', byte))
-                byte = 0
-                bit_count = 0
+        with open(original_path, "rb") as original_file:
+            while True:
+                current_data = original_file.read(chunk_size)
+                if not current_data:
+                    break
+                for caracter in current_data:
+                    binary_array = huffman_dict[caracter]
+                    for bit in binary_array:
+                        byte = (byte << 1) | bit 
+                        bit_count += 1
+                        if bit_count == 8:
+                            file.write(struct.pack('<B', byte))
+                            byte = 0
+                            bit_count = 0
 
         if bit_count > 0:
             byte = byte << (8 - bit_count)  # Padding
             file.write(struct.pack('B', byte))
             file.seek(padding_index)
-            print("padding", 8 - bit_count)
             file.write(struct.pack('B', 8 - bit_count))
 
-
-    with open(compressed_path, "rb") as file:
-        content = file.read()
-        print("archivo comprimido")
-        print(''.join('%02x'%i for i in content))
-        
     end_time = time.time()  
     elapsed_time = end_time - start_time  
     print(f"Tiempo de compresión: {elapsed_time:.6f} segundos")
@@ -210,11 +211,6 @@ def decompressAndSave(compressed_path, original_path):
             codigo.append([file.read(1) for _ in range(longitud)])  # Leer los bits como 1 o 0
         padding = struct.unpack('B', file.read(1))[0]
 
-        print("padding", padding)
-        print("codigo", codigo)
-        print("alfabeto", alfabeto)
-        print(type(alfabeto[0]))
-        print(sys.getsizeof(alfabeto[0]))
          # mapea cada codigo de huffman a cada simbolo para despues ir decodificando
         huffman_dict = {}
         for i in range(len(alfabeto)):
@@ -235,7 +231,6 @@ def decompressAndSave(compressed_path, original_path):
                 range_size = 8 - padding
             else:
                 range_size = 8
-            print("range_size", range_size)
             for i in range(range_size):
                 bit = (byte >> (8 - i - 1)) & 1
                 current_code += str(bit)
@@ -245,16 +240,14 @@ def decompressAndSave(compressed_path, original_path):
             redByte = file.read(1)
             current_byte_index += 1
             
-
     original.close()
-    print("original file:")
-    print(open(original_path).read())
-    original.close()
-
 
     end_time = time.time()
     elapsed_time = end_time - start_time  
     print(f"Tiempo de descompresión: {elapsed_time:.6f} segundos")
+
+
+
 
 if len(sys.argv) < 4:
    print("Hacen falta argumentos")
