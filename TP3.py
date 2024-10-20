@@ -133,7 +133,7 @@ def compressAndSave(original_path, compressed_path, longitud_palabra):
             
     print("Códigos generados:")
     print(codigo)  
-    print("alfabeto", alfabeto,probabilidades)  
+    print("alfabeto", alfabeto, probabilidades)  
     print("longitud alfabeto", len(alfabeto))
 
 
@@ -159,8 +159,10 @@ def compressAndSave(original_path, compressed_path, longitud_palabra):
         compressed_data = []
         for char in content:
             compressed_data.extend(huffman_dict[char])  # Bits de Huffman
-        print('archivo comprimido')
-        print(compressed_data)
+
+        padding_index = file.tell()
+        file.write(struct.pack('B', 0)) # Guardo un byte inicializado en 0 para el padding
+        print("padding_index", padding_index)
 
         byte = 0
         bit_count = 0
@@ -174,8 +176,10 @@ def compressAndSave(original_path, compressed_path, longitud_palabra):
 
         if bit_count > 0:
             byte = byte << (8 - bit_count)  # Padding
-            print(byte)
             file.write(struct.pack('B', byte))
+            file.seek(padding_index)
+            print("padding", 8 - bit_count)
+            file.write(struct.pack('B', 8 - bit_count))
 
 
     with open(compressed_path, "rb") as file:
@@ -204,8 +208,10 @@ def decompressAndSave(compressed_path, original_path):
         codigo = []
         for longitud in longitudes_codigo:
             codigo.append([file.read(1) for _ in range(longitud)])  # Leer los bits como 1 o 0
-        print("codigo", codigo)
+        padding = struct.unpack('B', file.read(1))[0]
 
+        print("padding", padding)
+        print("codigo", codigo)
         print("alfabeto", alfabeto)
         print(type(alfabeto[0]))
         print(sys.getsizeof(alfabeto[0]))
@@ -215,20 +221,31 @@ def decompressAndSave(compressed_path, original_path):
             bits_string = ''.join(map(lambda byte: bin(int.from_bytes(byte, byteorder='big'))[2:], codigo[i]))
             huffman_dict[bits_string] = alfabeto[i]
 
+        current_index = file.tell()
+        file.seek(0, 2)
+        last_byte_index = file.tell()
+        file.seek(current_index)
         original = open(original_path, 'wb')
         redByte = file.read(1)
+        current_byte_index = file.tell()
         current_code = ''
         while redByte:
-            byte = struct.unpack('<B', redByte)[0]
-            for i in range(8):
+            byte = struct.unpack('>B', redByte)[0]
+            if current_byte_index == last_byte_index:
+                range_size = 8 - padding
+            else:
+                range_size = 8
+            print("range_size", range_size)
+            for i in range(range_size):
                 bit = (byte >> (8 - i - 1)) & 1
                 current_code += str(bit)
                 if current_code in huffman_dict:
-                    print(current_code)
-                    print(huffman_dict[current_code])
                     original.write(huffman_dict[current_code])
                     current_code = ''
             redByte = file.read(1)
+            current_byte_index += 1
+            
+
     original.close()
     print("original file:")
     print(open(original_path).read())
@@ -264,7 +281,7 @@ def leerArchivoBinarioEnHex(ruta_archivo):
         print(hex_output)
 
 
-leerArchivoBinarioEnHex(compressed_path)
+#leerArchivoBinarioEnHex(compressed_path)
 
 if(compress):
     compressAndSave(original_path, compressed_path, longitud_palabra)
