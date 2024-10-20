@@ -83,6 +83,7 @@ def list_recursive_sum_type_safe(maybe_arr):
     
 from collections import Counter
 
+# TODO: Obtener frecuencias en vez de probabilidades (al leer de a chunks no funciona)
 def obtener_alfabeto_probabilidades(content):
     alfabeto = list(set(content))  # Obtener los símbolos únicos
     conteos = Counter(content)     # Contar las ocurrencias de cada símbolo
@@ -93,14 +94,12 @@ def obtener_alfabeto_probabilidades(content):
     
     return alfabeto, probabilidades
 
-
-
     
 def compressAndSave(original_path, compressed_path, longitud_palabra):
     start_time = time.time()
     alfabeto = []
     probabilidades = []
-    chunk_size = 200 # leer de a 200 bytes
+    chunk_size = 500000 # leer de a 500kb
 
     with open(original_path, 'rb') as file:
        while True:
@@ -110,8 +109,15 @@ def compressAndSave(original_path, compressed_path, longitud_palabra):
            # Update alphabet and probabilities from the chunk
            alfabeto_chunk, probabilidades_chunk = obtener_alfabeto_probabilidades(chunk)
            # Combine with the rest
-           alfabeto.extend(alfabeto_chunk)
-           probabilidades.extend(probabilidades_chunk)
+           for caracter in alfabeto_chunk:
+                if caracter in alfabeto:
+                   index = alfabeto.index(caracter)
+                   chunk_index = alfabeto_chunk.index(caracter)
+                   probabilidades[index] += probabilidades_chunk[chunk_index]
+                else:
+                   alfabeto.append(caracter)
+                   index = alfabeto_chunk.index(caracter)
+                   probabilidades.append(probabilidades_chunk[index])
 
     print(alfabeto)
     print(probabilidades)
