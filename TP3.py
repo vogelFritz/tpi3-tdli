@@ -2,64 +2,33 @@ import sys
 import time
 import struct
 
-
-# Python program for implementation of Quicksort Sort
-
-# This implementation utilizes pivot as the last element in the nums list
-# It has a pointer to keep track of the elements smaller than the pivot
-# At the very end of partition() function, the pointer is swapped with the pivot
-# to come up with a "sorted" nums relative to the pivot
-
-
-# Function to find the partition position
 def partition(array, low, high, parallel_arrays):
-
-    # choose the rightmost element as pivot
     pivot = array[high]
 
-    # pointer for greater element
     i = low - 1
 
-    # traverse through all elements
-    # compare each element with pivot
     for j in range(low, high):
         if array[j] > pivot:
-
-            # If element smaller than pivot is found
-            # swap it with the greater element pointed by i
             i += 1
 
-            # Swapping element at i with element at j
             (array[i], array[j]) = (array[j], array[i])
             for parallel_array in parallel_arrays:
                 (parallel_array[i], parallel_array[j]) = (parallel_array[j], parallel_array[i])
 
-    # Swap the pivot element with the greater element specified by i
     (array[i + 1], array[high]) = (array[high], array[i + 1])
     for parallel_array in parallel_arrays:
         (parallel_array[i + 1], parallel_array[high]) = (parallel_array[high], parallel_array[i + 1])
 
-    # Return the position from where partition is done
     return i + 1
-
-# function to perform quicksort
 
 
 def quickSortDescendingParallel(array, low, high, parallel_arrays):
     if low < high:
-
-        # Find pivot element such that
-        # element smaller than pivot are on the left
-        # element greater than pivot are on the right
         pi = partition(array, low, high, parallel_arrays)
 
-        # Recursive call on the left of pivot
         quickSortDescendingParallel(array, low, pi - 1, parallel_arrays)
 
-        # Recursive call on the right of pivot
         quickSortDescendingParallel(array, pi + 1, high, parallel_arrays)
-
-
 
 def swap(arr, i, j):
     aux = arr[i]
@@ -84,49 +53,47 @@ def list_recursive_sum_type_safe(maybe_arr):
 from collections import Counter
 
 # TODO: Obtener frecuencias en vez de probabilidades (al leer de a chunks no funciona)
-def obtener_alfabeto_probabilidades(content):
-    alfabeto = list(set(content))  # Obtener los símbolos únicos
-    conteos = Counter(content)     # Contar las ocurrencias de cada símbolo
-    total_simbolos = len(content)  # Longitud del contenido 
+def obtener_alfabeto_frecuencias(content, longitud_palabra):
+    chunks = [content[i:i + longitud_palabra] for i in range(0, len(content), longitud_palabra)]
+
+    alfabeto = list(set(chunks))  # Obtener los símbolos únicos
+    conteos = Counter(chunks)     # Contar las ocurrencias de cada símbolo
     
-    # Calcular las probabilidades
-    probabilidades = [conteos[symbol] / total_simbolos for symbol in alfabeto]
+    frecuencias = [conteos[symbol] for symbol in alfabeto]
     
-    return alfabeto, probabilidades
+    return alfabeto, frecuencias
 
     
 def compressAndSave(original_path, compressed_path, longitud_palabra):
     start_time = time.time()
     alfabeto = []
-    probabilidades = []
-    chunk_size = 500000 # leer de a 500kb
+    frecuencias = []
+    chunk_size = longitud_palabra * 500000 # leer de a 500kb
 
     with open(original_path, 'rb') as file:
        while True:
            chunk = file.read(chunk_size)
            if not chunk:
                break
-           # Update alphabet and probabilities from the chunk
-           alfabeto_chunk, probabilidades_chunk = obtener_alfabeto_probabilidades(chunk)
-           # Combine with the rest
+           alfabeto_chunk, frecuencias_chunk = obtener_alfabeto_frecuencias(chunk, longitud_palabra)
            for caracter in alfabeto_chunk:
                 if caracter in alfabeto:
                    index = alfabeto.index(caracter)
                    chunk_index = alfabeto_chunk.index(caracter)
-                   probabilidades[index] += probabilidades_chunk[chunk_index]
+                   frecuencias[index] += frecuencias_chunk[chunk_index]
                 else:
                    alfabeto.append(caracter)
                    index = alfabeto_chunk.index(caracter)
-                   probabilidades.append(probabilidades_chunk[index])
+                   frecuencias.append(frecuencias_chunk[index])
 
     print(alfabeto)
-    print(probabilidades)
+    print(frecuencias)
 
     # Primer paso Huffman
-    quickSortDescendingParallel(probabilidades, 0, len(probabilidades) - 1, [alfabeto])
+    quickSortDescendingParallel(frecuencias, 0, len(frecuencias) - 1, [alfabeto])
 
-    main_arr = probabilidades.copy()
-    num_arr = probabilidades.copy()
+    main_arr = frecuencias.copy()
+    num_arr = frecuencias.copy()
 
     while len(main_arr) > 2:
         aux = main_arr[len(main_arr) - 2:]
@@ -135,7 +102,7 @@ def compressAndSave(original_path, compressed_path, longitud_palabra):
         quickSortDescendingParallel(num_arr, 0, len(num_arr) - 1, [main_arr])
 
     codigo = [[0], [1]] # Almacenar de forma óptima los bytes
-    while len(main_arr) < len(probabilidades):
+    while len(main_arr) < len(frecuencias):
         i = len(main_arr) - 1
         while i >= 0 and type(main_arr[i]) is not list:
             i -= 1
@@ -146,17 +113,19 @@ def compressAndSave(original_path, compressed_path, longitud_palabra):
             
     print("Códigos generados:")
     print(codigo)  
-    print("alfabeto", alfabeto, probabilidades)  
+    print("alfabeto", alfabeto, frecuencias)  
     print("longitud alfabeto", len(alfabeto))
 
 
  # Crea un diccionario de Huffman con cada codigo
-    huffman_dict = {alfabeto[i]: codigo[i] for i in range(len(alfabeto))}
+    huffman_dict = {bytes(alfabeto[i]): codigo[i] for i in range(len(alfabeto))}
 
     with open(compressed_path, "wb") as file:
-        file.write(struct.pack('I', len(alfabeto)))  # Tamaño del alfabeto
+        file.write(struct.pack('>I', len(alfabeto)))  # Tamaño del alfabeto
         for symbol in alfabeto:
-            file.write(bytes([symbol]))  # Escribe cada símbolo
+            file.write(struct.pack('B', len(symbol)))
+        for symbol in alfabeto:
+            file.write(symbol)  # Escribe cada símbolo
 
         # Escribe las longitudes de los códigos
         for symbol in alfabeto:
@@ -178,7 +147,8 @@ def compressAndSave(original_path, compressed_path, longitud_palabra):
                 current_data = original_file.read(chunk_size)
                 if not current_data:
                     break
-                for caracter in current_data:
+                words = [current_data[i:i + longitud_palabra] for i in range(0, len(current_data), longitud_palabra)]
+                for caracter in words:
                     binary_array = huffman_dict[caracter]
                     for bit in binary_array:
                         byte = (byte << 1) | bit 
@@ -204,9 +174,11 @@ def decompressAndSave(compressed_path, original_path):
     print("Descomprimir y recuperar original")
     with open(compressed_path, 'rb') as file:
         # para obtener el alfabeto
-        alfabeto_length = struct.unpack('<i', file.read(4))[0]  # obtine la long del alfabeto, el primer byte y lo tranforma en entero
+        alfabeto_length = struct.unpack('>I', file.read(4))[0]  # obtine la long del alfabeto, el primer byte y lo tranforma en entero
         print("longitud alfabeto", alfabeto_length)
-        alfabeto = [file.read(1) for _ in range(alfabeto_length)]  #se guarda en una lista en formato utf-8
+        longitudes_alfabeto = [file.read(1)[0] for _ in range(alfabeto_length)]
+        print(longitudes_alfabeto)
+        alfabeto = [file.read(long) for long in longitudes_alfabeto]  #se guarda en una lista en formato utf-8
         
         # Lee las longitudes del codigo de huffman
         longitudes_codigo = [file.read(1)[0] for _ in range(alfabeto_length)]
@@ -260,7 +232,7 @@ if len(sys.argv) < 4:
    print("tpi3 {-c|-d} original compressed")
    sys.exit(1)
 
-longitud_palabra = 16 # Longitud de la palabra en bytes
+longitud_palabra = 3 # Longitud de la palabra en bytes
 
 original_path = sys.argv[2]
 compressed_path = sys.argv[3]
