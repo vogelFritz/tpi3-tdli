@@ -1,3 +1,4 @@
+import math
 import sys
 import time
 import struct
@@ -132,10 +133,32 @@ def compressAndSave(original_path, compressed_path, longitud_palabra):
             code = huffman_dict[symbol]
             file.write(struct.pack('B', len(code)))  # Longitud del código
 
-        for symbol in alfabeto:
-            code = huffman_dict[symbol]
-            for bit in code:
-                file.write(struct.pack('B', bit))
+        codes = [huffman_dict[symbol] for symbol in alfabeto]
+        print(codes)
+        codes_bits_list = [ bit for bits in codes for bit in bits]
+        print(codes_bits_list)
+        codes_bytes = bytes(codes_bits_list)
+
+        print(len(codes_bytes))
+        codes_bytes = []
+        byte = 0
+        bit_count = 0
+        for bit in codes_bits_list:
+            byte = (byte << 1) | bit
+            bit_count += 1
+            if bit_count == 8:
+                codes_bytes.append(byte)
+                byte = 0
+                bit_count = 0
+        if bit_count > 0:
+            padding = 8 - bit_count
+            file.write(struct.pack('B', padding))
+            byte = byte << padding
+            codes_bytes.append(byte)
+        else:
+            file.write(struct.pack('B', 0))
+        for byte in codes_bytes:
+            file.write(struct.pack('B', byte))
 
         padding_index = file.tell()
         file.write(struct.pack('B', 0)) # Guardo un byte inicializado en 0 para el padding
@@ -182,18 +205,44 @@ def decompressAndSave(compressed_path, original_path):
         
         # Lee las longitudes del codigo de huffman
         longitudes_codigo = [file.read(1)[0] for _ in range(alfabeto_length)]
+        # TODO: No guardar ese padding (no hace falta)
+        codigo_padding = file.read(1)[0]
+        print(longitudes_codigo)
+        total_bits = sum(longitudes_codigo)
+        total_bytes = math.ceil(total_bits / 8.0)
+        print("total_bytes", total_bytes)
+        codes_bytes = file.read(total_bytes)
+        red_code_bytes = 0
+        code_index = 0
+        current_code = ""
+        codigos = []
+        for byte in codes_bytes:
+            for i in range(8):
+                bit = (byte >> (8 - i - 1)) & 1
+                current_code += str(bit)
+                red_code_bytes += 1
+                print(current_code)
+                print(codigos)
+                if red_code_bytes == longitudes_codigo[code_index]:
+                    codigos.append(current_code)
+                    red_code_bytes = 0
+                    current_code = ""
+                    code_index += 1
+                if code_index == len(longitudes_codigo):
+                    break
+            if code_index == len(longitudes_codigo):
+                    break
         
-        # Lee los códigos binarios de cada simbolo
-        codigo = []
-        for longitud in longitudes_codigo:
-            codigo.append([file.read(1) for _ in range(longitud)])  # Leer los bits como 1 o 0
-        padding = struct.unpack('B', file.read(1))[0]
+        print(codigos)
 
          # mapea cada codigo de huffman a cada simbolo para despues ir decodificando
         huffman_dict = {}
         for i in range(len(alfabeto)):
-            bits_string = ''.join(map(lambda byte: bin(int.from_bytes(byte, byteorder='big'))[2:], codigo[i]))
-            huffman_dict[bits_string] = alfabeto[i]
+            huffman_dict[codigos[i]] = alfabeto[i]
+
+        print("huffman_dict:")
+        print(huffman_dict)
+        padding = file.read(1)[0]
 
         current_index = file.tell()
         file.seek(0, 2)
@@ -232,7 +281,7 @@ if len(sys.argv) < 4:
    print("tpi3 {-c|-d} original compressed")
    sys.exit(1)
 
-longitud_palabra = 3 # Longitud de la palabra en bytes
+longitud_palabra = 1 # Longitud de la palabra en bytes
 
 original_path = sys.argv[2]
 compressed_path = sys.argv[3]
