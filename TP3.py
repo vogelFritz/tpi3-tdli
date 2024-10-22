@@ -77,14 +77,6 @@ def calcular_tasa_compresion(original_path, compressed_path):
 def calcular_rendimientos(codigo, frecuencias, total_symbols):
     longitud_media = 0
     entropia = 0
-    #for i in range(len(codigo)):
-    #    probabilidad = frecuencias[i] / total_symbols
-    #    longitud_media += probabilidad * len(codigo[i])  # Longitud del código de Huffman
-
-    #for f in frecuencias:
-    #    probabilidad = f / total_symbols
-    #    if probabilidad > 0:
-    #        entropia += probabilidad * (-1) * math.log2(probabilidad)
 
     for i in range(len(codigo)):
         probabilidad = frecuencias[i] / total_symbols
@@ -142,7 +134,7 @@ def compressAndSave(original_path, compressed_path, longitud_palabra):
         main_arr = [*main_arr[:len(main_arr) - 2], aux]
         quickSortDescendingParallel(num_arr, 0, len(num_arr) - 1, [main_arr])
 
-    codigo = [[0], [1]] # Almacenar de forma óptima los bytes
+    codigo = [[0], [1]] 
     while len(main_arr) < len(frecuencias):
         i = len(main_arr) - 1
         while i >= 0 and type(main_arr[i]) is not list:
@@ -168,7 +160,7 @@ def compressAndSave(original_path, compressed_path, longitud_palabra):
         for symbol in alfabeto:
             file.write(symbol)  # Escribe cada símbolo
 
-        # Escribe las longitudes de los códigos
+        
         for symbol in alfabeto:
             code = huffman_dict[symbol]
             file.write(struct.pack('B', len(code)))  # Longitud del código
@@ -241,13 +233,13 @@ def decompressAndSave(compressed_path, original_path):
     print("Descomprimir y recuperar original")
     with open(compressed_path, 'rb') as file:
         # para obtener el alfabeto
-        alfabeto_length = struct.unpack('>I', file.read(4))[0]  # obtine la long del alfabeto, el primer byte y lo tranforma en entero
+        alfabeto_length = struct.unpack('>I', file.read(4))[0]  
         print("longitud alfabeto", alfabeto_length)
         longitudes_alfabeto = [file.read(1)[0] for _ in range(alfabeto_length)]
         print(longitudes_alfabeto)
-        alfabeto = [file.read(long) for long in longitudes_alfabeto]  #se guarda en una lista en formato utf-8
+        alfabeto = [file.read(long) for long in longitudes_alfabeto]  
         
-        # Lee las longitudes del codigo de huffman
+        
         longitudes_codigo = [file.read(1)[0] for _ in range(alfabeto_length)]
         # TODO: No guardar ese padding (no hace falta)
         codigo_padding = file.read(1)[0]
@@ -335,14 +327,6 @@ compress = sys.argv[1] == "-c"
 print("longitud palabra:", longitud_palabra)
 print("original path:", original_path)
 print("compressed path:", compressed_path)
-
-def leerArchivoBinarioEnHex(ruta_archivo):
-    with open(ruta_archivo, 'rb') as file:
-        contenido = file.read()
-        
-        hex_output = contenido.hex()
-        print("Contenido del archivo comprimido en hexadecimal:")
-        print(hex_output)
 
 
 #leerArchivoBinarioEnHex(compressed_path)
