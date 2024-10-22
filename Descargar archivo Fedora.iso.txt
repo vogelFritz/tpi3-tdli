@@ -1,0 +1,3 @@
+https://fedoraproject.org/workstation/download
+
+Se uso este archivo .iso para los casos de prueba, debido al tamanio no lo pudimos subir.
