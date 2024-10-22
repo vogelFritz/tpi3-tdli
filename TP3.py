@@ -1,4 +1,5 @@
 import math
+import heapq
 import sys
 import time
 import struct
@@ -55,15 +56,17 @@ def list_recursive_sum_type_safe(maybe_arr):
 from collections import Counter
 
 # TODO: Obtener frecuencias en vez de probabilidades (al leer de a chunks no funciona)
-def obtener_alfabeto_frecuencias(content, longitud_palabra):
+def obtener_alfabeto_frecuencias(content, alfabeto_dict, longitud_palabra):
     chunks = [content[i:i + longitud_palabra] for i in range(0, len(content), longitud_palabra)]
 
-    alfabeto = list(set(chunks))  # Obtener los símbolos únicos
     conteos = Counter(chunks)     # Contar las ocurrencias de cada símbolo
+    for symbol, count in conteos.items():
+        if symbol in alfabeto_dict:
+            alfabeto_dict[symbol] += count
+        else:
+            alfabeto_dict[symbol] = count
     
-    frecuencias = [conteos[symbol] for symbol in alfabeto]
-    
-    return alfabeto, frecuencias
+    return alfabeto_dict
 
 def calcular_tasa_compresion(original_path, compressed_path):
    
@@ -104,8 +107,7 @@ def calcular_rendimientos(codigo, frecuencias, total_symbols):
     
 def compressAndSave(original_path, compressed_path, longitud_palabra):
     start_time = time.time()
-    alfabeto = []
-    frecuencias = []
+    alfabeto_dict = {} # Mapa de símbolo a frecuencia
     chunk_size = longitud_palabra * 500000 # leer de a 500kb
     total_symbols = 0
 
@@ -114,72 +116,51 @@ def compressAndSave(original_path, compressed_path, longitud_palabra):
            chunk = file.read(chunk_size)
            if not chunk:
                break
-           alfabeto_chunk, frecuencias_chunk = obtener_alfabeto_frecuencias(chunk, longitud_palabra)
+           alfabeto_dict = obtener_alfabeto_frecuencias(chunk, alfabeto_dict, longitud_palabra)
            total_symbols += len(chunk) #para calcular la cant de simbolos por cada chunk leido 
 
-           for caracter in alfabeto_chunk:
-                if caracter in alfabeto:
-                   index = alfabeto.index(caracter)
-                   chunk_index = alfabeto_chunk.index(caracter)
-                   frecuencias[index] += frecuencias_chunk[chunk_index]
-                else:
-                   alfabeto.append(caracter)
-                   index = alfabeto_chunk.index(caracter)
-                   frecuencias.append(frecuencias_chunk[index])
-
-    print(alfabeto)
-    print(frecuencias)
-
     # Primer paso Huffman
-    quickSortDescendingParallel(frecuencias, 0, len(frecuencias) - 1, [alfabeto])
+    heap = [[freq, [symbol]] for symbol, freq in alfabeto_dict.items()]
+    heapq.heapify(heap)
 
-    main_arr = frecuencias.copy()
-    num_arr = frecuencias.copy()
+    while len(heap) > 1:
+        low1 = heapq.heappop(heap)
+        low2 = heapq.heappop(heap)
 
-    while len(main_arr) > 2:
-        aux = main_arr[len(main_arr) - 2:]
-        num_arr = [*num_arr[:len(num_arr) - 2], list_recursive_sum(aux)]
-        main_arr = [*main_arr[:len(main_arr) - 2], aux]
-        quickSortDescendingParallel(num_arr, 0, len(num_arr) - 1, [main_arr])
+        new_node = [low1[0] + low2[0], low1[1] + low2[1]]
+        heapq.heappush(heap, new_node)
 
-    codigo = [[0], [1]] # Almacenar de forma óptima los bytes
-    while len(main_arr) < len(frecuencias):
-        i = len(main_arr) - 1
-        while i >= 0 and type(main_arr[i]) is not list:
-            i -= 1
-        if i >= 0:
-            main_arr = [*main_arr[:i], *main_arr[i], *main_arr[i+1:]]
-            num_arr = list(map(list_recursive_sum_type_safe, main_arr))
-            codigo = [*codigo[:i], [*codigo[i], 0], [*codigo[i], 1], *codigo[i+1:]]
-            
-    print("Códigos generados:")
-    print(codigo)  
-    print("alfabeto", alfabeto, frecuencias)  
-    print("longitud alfabeto", len(alfabeto))
+    huffman_tree = heap[0][1]
+    # Paso 4: Generar los códigos de Huffman
+    huffman_dict = {}
+    def generate_codes(tree, prefix=[]):
+        if len(tree) == 1:
+            symbol = tree[0]
+            huffman_dict[symbol] = prefix
+        else:
+            left = tree[:len(tree) // 2]
+            right = tree[len(tree) // 2:]
+            generate_codes(left, prefix + [0])
+            generate_codes(right, prefix + [1])
 
-
- # Crea un diccionario de Huffman con cada codigo
-    huffman_dict = {bytes(alfabeto[i]): codigo[i] for i in range(len(alfabeto))}
+    generate_codes(huffman_tree)
+    symbols = list(huffman_dict.keys())
+    codes = [huffman_dict[symbol] for symbol in symbols]
 
     with open(compressed_path, "wb") as file:
-        file.write(struct.pack('>I', len(alfabeto)))  # Tamaño del alfabeto
-        for symbol in alfabeto:
+        file.write(struct.pack('>I', len(alfabeto_dict)))  # Tamaño del alfabeto
+        for symbol in symbols:
             file.write(struct.pack('B', len(symbol)))
-        for symbol in alfabeto:
+        for symbol in symbols:
             file.write(symbol)  # Escribe cada símbolo
 
         # Escribe las longitudes de los códigos
-        for symbol in alfabeto:
-            code = huffman_dict[symbol]
+        for code in codes:
             file.write(struct.pack('B', len(code)))  # Longitud del código
 
-        codes = [huffman_dict[symbol] for symbol in alfabeto]
-        print(codes)
         codes_bits_list = [ bit for bits in codes for bit in bits]
-        print(codes_bits_list)
         codes_bytes = bytes(codes_bits_list)
 
-        print(len(codes_bytes))
         codes_bytes = []
         byte = 0
         bit_count = 0
@@ -232,29 +213,24 @@ def compressAndSave(original_path, compressed_path, longitud_palabra):
     print(f"Tiempo de compresión: {elapsed_time:.6f} segundos")
 
     calcular_tasa_compresion(original_path,compressed_path)
-    calcular_rendimientos(codigo,frecuencias,total_symbols)
+    calcular_rendimientos(codes, [alfabeto_dict[symbol] for symbol in symbols], total_symbols)
 
 
 def decompressAndSave(compressed_path, original_path):
     start_time = time.time()
 
-    print("Descomprimir y recuperar original")
     with open(compressed_path, 'rb') as file:
         # para obtener el alfabeto
         alfabeto_length = struct.unpack('>I', file.read(4))[0]  # obtine la long del alfabeto, el primer byte y lo tranforma en entero
-        print("longitud alfabeto", alfabeto_length)
         longitudes_alfabeto = [file.read(1)[0] for _ in range(alfabeto_length)]
-        print(longitudes_alfabeto)
         alfabeto = [file.read(long) for long in longitudes_alfabeto]  #se guarda en una lista en formato utf-8
         
         # Lee las longitudes del codigo de huffman
         longitudes_codigo = [file.read(1)[0] for _ in range(alfabeto_length)]
         # TODO: No guardar ese padding (no hace falta)
         codigo_padding = file.read(1)[0]
-        print(longitudes_codigo)
         total_bits = sum(longitudes_codigo)
         total_bytes = math.ceil(total_bits / 8.0)
-        print("total_bytes", total_bytes)
         codes_bytes = file.read(total_bytes)
         red_code_bytes = 0
         code_index = 0
@@ -265,8 +241,6 @@ def decompressAndSave(compressed_path, original_path):
                 bit = (byte >> (8 - i - 1)) & 1
                 current_code += str(bit)
                 red_code_bytes += 1
-                print(current_code)
-                print(codigos)
                 if red_code_bytes == longitudes_codigo[code_index]:
                     codigos.append(current_code)
                     red_code_bytes = 0
@@ -277,15 +251,11 @@ def decompressAndSave(compressed_path, original_path):
             if code_index == len(longitudes_codigo):
                     break
         
-        print(codigos)
-
          # mapea cada codigo de huffman a cada simbolo para despues ir decodificando
         huffman_dict = {}
         for i in range(len(alfabeto)):
             huffman_dict[codigos[i]] = alfabeto[i]
 
-        print("huffman_dict:")
-        print(huffman_dict)
         padding = file.read(1)[0]
 
         current_index = file.tell()
@@ -335,17 +305,6 @@ compress = sys.argv[1] == "-c"
 print("longitud palabra:", longitud_palabra)
 print("original path:", original_path)
 print("compressed path:", compressed_path)
-
-def leerArchivoBinarioEnHex(ruta_archivo):
-    with open(ruta_archivo, 'rb') as file:
-        contenido = file.read()
-        
-        hex_output = contenido.hex()
-        print("Contenido del archivo comprimido en hexadecimal:")
-        print(hex_output)
-
-
-#leerArchivoBinarioEnHex(compressed_path)
 
 if(compress):
     compressAndSave(original_path, compressed_path, longitud_palabra)
